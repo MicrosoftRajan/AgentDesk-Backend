@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/unit/*.test.ts tests/integration/*.test.ts",
     "test:unit": "tsx --test tests/unit/*.test.ts",
-    "test:integration": "tsx --test tests/integration/*.test.ts"
+    "test:integration": "tsx --test tests/integration/*.test.ts",
+    "db:verify": "tsx scripts/verify-supabase.ts"
   },
   "keywords": [],
   "author": "",

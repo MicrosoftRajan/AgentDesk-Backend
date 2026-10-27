@@ -1,8 +1,55 @@
+/** Words the current API and Expo app still use. */
 export type AppointmentStatus =
   | "scheduled"
   | "cancelled"
   | "completed"
   | "no_show";
+
+/** Words stored in `appointments.status` after migration 006. */
+export type StoredAppointmentStatus =
+  | "pending"
+  | "scheduled"
+  | "in_progress"
+  | "completed"
+  | "canceled"
+  | "incomplete";
+
+export function toApiStatus(status: StoredAppointmentStatus): AppointmentStatus {
+  switch (status) {
+    case "pending":
+    case "scheduled":
+    case "in_progress":
+      return "scheduled";
+    case "completed":
+      return "completed";
+    case "canceled":
+      return "cancelled";
+    case "incomplete":
+      return "no_show";
+  }
+}
+
+/** Statuses that still occupy a bookable start time for the current app. */
+export const OCCUPIED_STATUSES = [
+  "pending",
+  "scheduled",
+  "in_progress",
+] as const satisfies readonly StoredAppointmentStatus[];
+
+export function storedStatusesFor(
+  status: AppointmentStatus,
+): StoredAppointmentStatus[] {
+  switch (status) {
+    case "scheduled":
+      return ["pending", "scheduled", "in_progress"];
+    case "cancelled":
+      return ["canceled"];
+    case "completed":
+      return ["completed"];
+    case "no_show":
+      return ["incomplete"];
+  }
+}
 
 /** Staff and agent view. Includes contact details. */
 export interface Appointment {
@@ -25,53 +72,57 @@ export interface PatientAppointment {
   cancelReason: string | null;
 }
 
+export interface AppointmentPatientRow {
+  full_name: string;
+  phone: string;
+  user_id: string | null;
+}
+
 export interface AppointmentRow {
   id: string;
-  patient_name: string;
-  patient_phone: string;
   reason: string | null;
   scheduled_at: string;
-  status: AppointmentStatus;
+  status: StoredAppointmentStatus;
   cancel_reason: string | null;
   last_reminder_at: string | null;
+  patients: AppointmentPatientRow | AppointmentPatientRow[];
 }
 
-export interface PatientAppointmentRow {
-  id: string;
-  reason: string | null;
-  scheduled_at: string;
-  status: AppointmentStatus;
-  cancel_reason: string | null;
+export const APPOINTMENT_COLUMNS =
+  "id, reason, scheduled_at, status, cancel_reason, last_reminder_at, " +
+  "patients!inner(full_name, phone, user_id)";
+
+function patientOf(row: AppointmentRow): AppointmentPatientRow {
+  const patient = Array.isArray(row.patients) ? row.patients[0] : row.patients;
+
+  if (!patient) {
+    throw new Error("Appointment is missing its patient");
+  }
+
+  return patient;
 }
-
-export const STAFF_APPOINTMENT_COLUMNS =
-  "id, patient_name, patient_phone, reason, scheduled_at, status, " +
-  "cancel_reason, last_reminder_at";
-
-export const PATIENT_APPOINTMENT_COLUMNS =
-  "id, reason, scheduled_at, status, cancel_reason";
 
 export function toAppointment(row: AppointmentRow): Appointment {
+  const patient = patientOf(row);
+
   return {
     id: row.id,
-    patientName: row.patient_name,
-    patientPhone: row.patient_phone,
+    patientName: patient.full_name,
+    patientPhone: patient.phone,
     reason: row.reason,
     scheduledAt: row.scheduled_at,
-    status: row.status,
+    status: toApiStatus(row.status),
     cancelReason: row.cancel_reason,
     lastReminderAt: row.last_reminder_at,
   };
 }
 
-export function toPatientAppointment(
-  row: PatientAppointmentRow,
-): PatientAppointment {
+export function toPatientAppointment(row: AppointmentRow): PatientAppointment {
   return {
     id: row.id,
     reason: row.reason,
     scheduledAt: row.scheduled_at,
-    status: row.status,
+    status: toApiStatus(row.status),
     cancelReason: row.cancel_reason,
   };
 }
