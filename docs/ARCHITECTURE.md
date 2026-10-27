@@ -295,7 +295,9 @@ erDiagram
   }
 ```
 
-Key constraints: unique active slot per `scheduled_at` (single-doctor clinic), one pending approval per run, `ON DELETE CASCADE` from runs to messages and approvals.
+Key constraints on the agent tables: one pending approval per run, and `ON DELETE CASCADE` from runs to messages and approvals.
+
+`supabase/migrations/006_clinic_schema.sql` replaces the appointment table drawn above. Visits point at `patients`, `locations`, and `appointment_types`. An assigned doctor's visits cannot overlap. The API still returns `scheduled`, `cancelled`, and `no_show` to the current app.
 
 ---
 

@@ -1,8 +1,8 @@
 # AgentDesk data model (proposed MVP)
 
-This document is the review draft for Naveen. It describes the schema to build next. It is not applied: there is no migration for these tables.
+This document is the schema in `supabase/migrations/006_clinic_schema.sql`. Apply `001` through `006` in order. The API still returns `scheduled`, `cancelled`, and `no_show` to the current app. The tables store `pending`, `canceled`, and `incomplete`.
 
-The system as it runs today is still the single-clinic model in [ARCHITECTURE.md](ARCHITECTURE.md) section 6. Hours are constants in `src/modules/appointments/clinicSchedule.ts` (Asia/Kolkata, 10:00–17:30, Sunday closed). `appointments.status` is `scheduled | cancelled | completed | no_show`, there is no doctor or location column, and a unique index allows only one live row per `scheduled_at`.
+The patient portal still offers slots from `src/modules/appointments/clinicSchedule.ts` (Asia/Kolkata, 10:00–17:30, Sunday closed). Migration 006 also stores that week as the `Clinic week` template. A booking from the current API is `pending` with no doctor, at the oldest location, using the oldest active appointment type. Overlap for an assigned doctor is the exclusion constraint, not one row per `scheduled_at`.
 
 Screens that use this model are in [WIREFRAMES.md](WIREFRAMES.md).
 

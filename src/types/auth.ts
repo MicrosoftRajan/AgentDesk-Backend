@@ -1,5 +1,5 @@
 /** What a signed-in user is allowed to do. Stored on `profiles`, never taken from the client. */
-export type UserRole = "staff" | "patient";
+export type UserRole = "patient" | "staff" | "doctor" | "admin";
 
 /** The authenticated caller, as identified by Supabase Auth. */
 export interface AuthUser {
