@@ -1,0 +1,19 @@
+# Local secrets. Never commit.
+.env
+.env.*
+!.env.example
+
+# Server certificates and private keys.
+# Public test fixtures under test/fixtures/ stay in git.
+certs/
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+
+!test/fixtures/*.pem
+!test/fixtures/*.key
+!test/fixtures/*.crt
+!test/fixtures/*.cer
