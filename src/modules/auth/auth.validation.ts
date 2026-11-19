@@ -25,6 +25,8 @@ const phone = z.string().trim().regex(/^\+[1-9]\d{7,13}$/, { message: "Use inter
 const passwordsMatch = (value: { password: string; confirmPassword: string }) => value.password === value.confirmPassword;
 const mismatch = { message: "Passwords do not match", path: ["confirmPassword"] };
 
+export const signupRole = z.enum(["patient", "receptionist", "doctor"]);
+
 export const signupSchema = z
   .strictObject({
     fullName,
@@ -32,6 +34,7 @@ export const signupSchema = z
     phone: phone.nullish(),
     password,
     confirmPassword: z.string().max(PASSWORD_MAX),
+    role: signupRole.optional(),
   })
   .refine(passwordsMatch, mismatch);
 

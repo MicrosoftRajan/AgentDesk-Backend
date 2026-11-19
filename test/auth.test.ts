@@ -209,14 +209,21 @@ describe("auth API", () => {
       }
     });
 
-    it("never lets signup choose a role: a role field is rejected and nothing is created", async () => {
-      const before = h.repo.accounts.size;
-      for (const role of ["admin", "doctor", "receptionist", "patient"]) {
+    it("saves patient, receptionist, or doctor from signup and rejects admin", async () => {
+      for (const role of ["patient", "receptionist", "doctor"] as const) {
         const p = newPerson();
         const res = await h.call("POST", "/auth/signup", { ...p, confirmPassword: p.password, role });
-        assert.equal(res.status, 400);
-        assert.ok(res.json.error.details.some((d: Json) => d.rule === "unrecognized_keys"));
+        assert.equal(res.status, 201, res.text);
+        assert.equal(res.json.data.user.role, role);
+        assert.equal(decodeJwt(res.json.data.tokens.accessToken).role, role);
       }
+
+      const before = h.repo.accounts.size;
+      const admin = newPerson();
+      const rejected = await h.call("POST", "/auth/signup", { ...admin, confirmPassword: admin.password, role: "admin" });
+      assert.equal(rejected.status, 400);
+      assert.equal(rejected.json.error.code, "VALIDATION_ERROR");
+      assert.ok(rejected.json.error.details.some((d: Json) => d.path === "role"));
       assert.equal(h.repo.accounts.size, before);
     });
 

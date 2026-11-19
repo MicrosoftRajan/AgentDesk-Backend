@@ -94,7 +94,7 @@ Base path: `/api/v1/auth`. Every auth response uses `{ "success", "data" | "erro
 | `POST` | `/verify-email` | Token from the email | `200` |
 | `POST` | `/resend-verification` | Bearer access token | `202` |
 
-Public signup rejects a body that contains `role`. Passwords are 8 to 128 characters. Phone, when sent, is E.164 and at most 15 characters, for example `+919812345678`.
+Public signup accepts `role` of `patient`, `receptionist`, or `doctor`. Leave it out and the account is a patient. `admin` is rejected. Passwords are 8 to 128 characters. Phone, when sent, is E.164 and at most 15 characters, for example `+919812345678`.
 
 Access tokens are HS256 JWTs with the user id and role only. They last 15 minutes by default and stay valid until they expire, including after logout. Refresh tokens are random, stored as SHA-256 hashes, and rotate. Reuse of a spent refresh token revokes that whole sign-in.
 

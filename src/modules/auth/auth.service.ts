@@ -96,7 +96,7 @@ export function createAuthService({ repo, email, settings, clock, defer }: AuthS
 
   return {
     async signup(input: SignupInput): Promise<{ user: SafeUser; tokens: AuthTokens }> {
-      const { account, verificationToken } = await createAccount(input, "patient");
+      const { account, verificationToken } = await createAccount(input, input.role ?? "patient");
       sendLater(() => verificationEmail(account.email, buildAuthLink(links, "verify-email", verificationToken)));
       const tokens = await issueSession(account.id, account.role);
       return { user: toSafeUser(account), tokens };
