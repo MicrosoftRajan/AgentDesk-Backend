@@ -12,12 +12,14 @@ export type ErrorCode =
   | "INVALID_VERIFICATION_TOKEN"
   | "RATE_LIMITED"
   | "NOT_FOUND"
+  | "DOCTOR_NOT_FOUND"
   | "PAYLOAD_TOO_LARGE"
   | "INTERNAL_SERVER_ERROR";
 
-export type ErrorDetail = { path: string; rule: string };
 
-export class AppError extends Error {
+export type ErrorDetail = { path: string; rule: string }; // where the exact error happens and define the error format
+
+export class AppError extends Error { // Custom Error Class to extend JS Error Class
   constructor(
     readonly status: number,
     readonly code: ErrorCode,
@@ -29,7 +31,7 @@ export class AppError extends Error {
   }
 }
 
-const meta = () => ({ timestamp: new Date().toISOString() });
+const meta = () => ({ timestamp: new Date().toISOString() }); // create the current timestamp everytime when backend send the response
 
 export function errorBody(code: ErrorCode, message: string, details?: ErrorDetail[]) {
   return { success: false as const, error: { code, message, ...(details ? { details } : {}) }, meta: meta() };

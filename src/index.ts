@@ -1,12 +1,18 @@
+
+
+/* This is the main entry point of the application. */
+
 import { createDatabase } from "./config/database";
 import { EnvValidationError, parseAuthEnv, parseEnv, type AuthEnv, type Env } from "./config/env";
 import { createDrizzleAuthRepository } from "./modules/auth/auth.repository";
 import { deferWithSetImmediate } from "./modules/auth/auth.service";
+import { createDrizzleDoctorsRepository } from "./modules/doctors/doctors.repository";
 import { startServer } from "./server";
 import { createResendSender } from "./services/email.service";
 
 let env: Env;
 let authEnv: AuthEnv;
+
 try {
   const issues: string[] = [];
   const attempt = <T>(parse: () => T): T | undefined => {
@@ -44,5 +50,10 @@ startServer(env, [{ name: "database pool", run: database.close }], {
     },
     clock: () => new Date(),
     defer: deferWithSetImmediate,
+  },
+  doctors: {
+    repo: createDrizzleDoctorsRepository(database.db),
+    clock: () => new Date(),
+    timeZone: env.CLINIC_TIMEZONE,
   },
 });
