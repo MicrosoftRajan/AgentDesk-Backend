@@ -60,11 +60,20 @@ describe("parseEnv", () => {
       DB_POOL_MAX: 10,
       DB_POOL_IDLE_TIMEOUT_MS: 30_000,
       DB_CONNECTION_TIMEOUT_MS: 10_000,
+      CLINIC_TIMEZONE: "Asia/Kolkata",
     });
     assert.ok(Object.isFrozen(env));
 
     assert.equal(Reflect.set(env, "PORT", 1), false);
     assert.equal(env.PORT, 3000);
+  });
+
+  it("accepts an IANA CLINIC_TIMEZONE and rejects an unknown one", () => {
+    const env = parseEnv({ DATABASE_URL: VALID_URL, DATABASE_CA_CERT_PATH: CA, CLINIC_TIMEZONE: "Asia/Dubai" });
+    assert.equal(env.CLINIC_TIMEZONE, "Asia/Dubai");
+    assert.deepEqual(issuesOf({ DATABASE_URL: VALID_URL, DATABASE_CA_CERT_PATH: CA, CLINIC_TIMEZONE: "Mars/Base" }), [
+      "CLINIC_TIMEZONE must be an IANA time zone such as Asia/Kolkata",
+    ]);
   });
 
   it("resolves a relative CA path from backend/", () => {

@@ -1,6 +1,7 @@
 import { X509Certificate } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { DEFAULT_CLINIC_TIMEZONE, isValidTimeZone } from "../utils/clinic-time";
 
 export type Env = Readonly<{
   PORT: number;
@@ -10,16 +11,20 @@ export type Env = Readonly<{
   DB_POOL_MAX: number;
   DB_POOL_IDLE_TIMEOUT_MS: number;
   DB_CONNECTION_TIMEOUT_MS: number;
+  CLINIC_TIMEZONE: string; // IANA zone for "today", booking windows and slot cut-offs
 }>;
 
 type Source = Record<string, string | undefined>;
 
+
+// Pathway for folders
 const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
 
 const FORBIDDEN_URL_PARAMS = ["ssl", "sslmode", "sslrootcert", "sslcert", "sslkey", "sslpassword", "uselibpqcompat"];
 
 const PRIVILEGED_USERS = ["postgres", "supabase_admin"];
 
+// Print the list of issue on the console or terminal at once
 export class EnvValidationError extends Error {
   constructor(readonly issues: string[]) {
     super(`Invalid environment configuration:\n${issues.map((issue) => `  - ${issue}`).join("\n")}`);
@@ -27,6 +32,7 @@ export class EnvValidationError extends Error {
   }
 }
 
+// ParseEnv is used to remove the trim space from .env
 export function parseEnv(source: Source): Env {
   const issues: string[] = [];
 
@@ -35,6 +41,7 @@ export function parseEnv(source: Source): Env {
     return value ? value : undefined;
   };
 
+  // It check the setting is correct or not
   const integer = (name: string, fallback: number, min: number, max: number): number => {
     const raw = read(name);
     if (raw === undefined) return fallback;
@@ -45,11 +52,16 @@ export function parseEnv(source: Source): Env {
     return Number(raw);
   };
 
+  // Default Setting
   const PORT = integer("PORT", 3000, 1, 65535);
   const DB_POOL_MAX = integer("DB_POOL_MAX", 10, 1, 100);
   const DB_POOL_IDLE_TIMEOUT_MS = integer("DB_POOL_IDLE_TIMEOUT_MS", 30_000, 0, 3_600_000);
   const DB_CONNECTION_TIMEOUT_MS = integer("DB_CONNECTION_TIMEOUT_MS", 10_000, 1, 120_000);
 
+  const CLINIC_TIMEZONE = read("CLINIC_TIMEZONE") ?? DEFAULT_CLINIC_TIMEZONE;
+  if (!isValidTimeZone(CLINIC_TIMEZONE)) issues.push("CLINIC_TIMEZONE must be an IANA time zone such as Asia/Kolkata");
+
+  // it is making connection with DataBase
   const DATABASE_URL = read("DATABASE_URL");
   if (DATABASE_URL === undefined) {
     issues.push("DATABASE_URL is required");
@@ -57,6 +69,7 @@ export function parseEnv(source: Source): Env {
     issues.push(...checkDatabaseUrl(DATABASE_URL));
   }
 
+  // Verify the DATABASE_CA_CERT_PATH
   const caPathRaw = read("DATABASE_CA_CERT_PATH");
   let DATABASE_CA_CERT_PATH = "";
   if (caPathRaw === undefined) {
@@ -69,6 +82,8 @@ export function parseEnv(source: Source): Env {
 
   if (issues.length > 0) throw new EnvValidationError(issues);
 
+  // Ok it return the object in this format and freeze it so that no one can change the settings
+  // and checks setting related to env and server
   return Object.freeze({
     PORT,
     DATABASE_URL: DATABASE_URL as string,
@@ -76,26 +91,30 @@ export function parseEnv(source: Source): Env {
     DB_POOL_MAX,
     DB_POOL_IDLE_TIMEOUT_MS,
     DB_CONNECTION_TIMEOUT_MS,
+    CLINIC_TIMEZONE,
   });
 }
 
+// Related to Loging Part
 export type AuthEnv = Readonly<{
   JWT_SECRET: Uint8Array;
   ACCESS_TOKEN_TTL_SECONDS: number;
-  REFRESH_TOKEN_TTL_DAYS: number;
-  RESEND_API_KEY: string;
+  REFRESH_TOKEN_TTL_DAYS: number; // No of days
+  RESEND_API_KEY: string; // email sending Key(in progress)
   EMAIL_FROM: string;
 
-  FRONTEND_URL: string | undefined;
+  FRONTEND_URL: string | undefined; //URL of Frontend Website
   APP_SCHEME: string;
 }>;
 
+// it check the auth settings function
 export function parseAuthEnv(source: Source): AuthEnv {
   const issues: string[] = [];
   const read = (name: string): string | undefined => {
     const value = source[name]?.trim();
     return value ? value : undefined;
   };
+  // it's checks whether the enter number is correct or not
   const integer = (name: string, fallback: number, min: number, max: number): number => {
     const raw = read(name);
     if (raw === undefined) return fallback;
@@ -106,13 +125,20 @@ export function parseAuthEnv(source: Source): AuthEnv {
     return Number(raw);
   };
 
+  // it checks the JSON WEB TOKEN
   const jwtSecret = read("JWT_SECRET");
+  // if it absent or not in env
   if (jwtSecret === undefined) issues.push("JWT_SECRET is required");
+
+  // it checks the length of the jwtSecret
   else if (Buffer.byteLength(jwtSecret, "utf8") < 32) issues.push("JWT_SECRET must be at least 32 bytes");
 
+  // it chcks the Token Expiry for Access -> 15 Min and Refresh -> 30 Days
+  // and if no value is provided in env use the drfualt one
   const ACCESS_TOKEN_TTL_SECONDS = integer("ACCESS_TOKEN_TTL_SECONDS", 900, 60, 3600);
   const REFRESH_TOKEN_TTL_DAYS = integer("REFRESH_TOKEN_TTL_DAYS", 30, 1, 90);
 
+  // it checks the mail settings from RESEND API
   const RESEND_API_KEY = read("RESEND_API_KEY");
   if (RESEND_API_KEY === undefined) issues.push("RESEND_API_KEY is required");
   else if (!RESEND_API_KEY.startsWith("re_")) issues.push("RESEND_API_KEY must start with re_");
@@ -123,6 +149,12 @@ export function parseAuthEnv(source: Source): AuthEnv {
     issues.push("EMAIL_FROM must be an address or Name <address>");
   }
 
+
+  /* it checks the FRONTEND_URL 
+  it checks URL is Correct
+  it checks HTTPS is used
+  if it is on local Host HTTP is allowed
+  also checks no extra path or query*/
   const FRONTEND_URL = read("FRONTEND_URL");
   if (FRONTEND_URL !== undefined) {
     let url: URL | undefined;
@@ -144,10 +176,13 @@ export function parseAuthEnv(source: Source): AuthEnv {
     issues.push("FRONTEND_URL is required when NODE_ENV is production");
   }
 
+
+  // This is Mobile part
   const APP_SCHEME = read("APP_SCHEME") ?? "agentdesk";
   if (!/^[a-z][a-z0-9+.-]*$/.test(APP_SCHEME)) {
     issues.push("APP_SCHEME must start with a lowercase letter and use only a-z, 0-9, +, - and .");
   }
+
 
   if (issues.length > 0) throw new EnvValidationError(issues);
 
@@ -161,6 +196,8 @@ export function parseAuthEnv(source: Source): AuthEnv {
     APP_SCHEME,
   });
 }
+
+// it checks the Databases
 
 function checkDatabaseUrl(value: string): string[] {
   let url: URL;
@@ -198,6 +235,8 @@ function checkDatabaseUrl(value: string): string[] {
   return issues;
 }
 
+
+// it's check the CA Certificate Path if not find it throw error
 function checkCaCertificate(filePath: string): string | undefined {
   try {
     if (!statSync(filePath).isFile()) return "must point to a file";
